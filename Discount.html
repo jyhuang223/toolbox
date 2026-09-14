@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>折扣價格計算器</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Microsoft JhengHei", "Noto Sans TC", Arial, sans-serif;
+      background: #f5f6f8;
+      color: #222;
+      padding: 32px 16px;
+    }
+
+    .container {
+      width: min(760px, 100%);
+      margin: 0 auto;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 18px;
+      padding: 28px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+    }
+
+    h1 {
+      margin: 0 0 22px;
+      text-align: center;
+      font-size: 26px;
+    }
+
+    .input-area {
+      margin-bottom: 24px;
+    }
+
+    .input-area label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .price-input {
+      width: 100%;
+      height: auto;
+      border: 2px solid #d9dce2;
+      border-radius: 12px;
+      padding: 15px;
+      font-size: 16px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .price-input:focus {
+      border-color: #222;
+      box-shadow: 0 0 0 3px rgba(34, 34, 34, 0.08);
+    }
+
+    /* 自訂折數輸入區塊 */
+    .custom-discount-area {
+      margin-bottom: 20px;
+    }
+
+    .custom-input-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .custom-input {
+      flex: 1;
+      border: 2px solid #d9dce2;
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .custom-input:focus {
+      border-color: #222;
+    }
+
+    .add-btn {
+      background: #222;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 0 20px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      white-space: nowrap;
+    }
+
+    .add-btn:hover {
+      background: #444;
+    }
+
+    /* 標籤選擇區塊 */
+    .discount-tags-area {
+      margin-bottom: 24px;
+    }
+
+    .discount-tags-label {
+      display: block;
+      margin-bottom: 10px;
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .tags-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .tag-btn {
+      background: #f0f2f5;
+      color: #555;
+      border: 2px solid transparent;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s ease;
+    }
+
+    .tag-btn:hover {
+      background: #e4e7eb;
+    }
+
+    /* 選中的標籤樣式 */
+    .tag-btn.active {
+      background: #e8f4fe;
+      color: #1a73e8;
+      border-color: #1a73e8;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    .discount-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 400px;
+    }
+
+    .discount-table th,
+    .discount-table td {
+      padding: 14px 12px;
+      border-bottom: 1px solid #eceef1;
+      text-align: center;
+    }
+
+    .discount-table th {
+      background: #f7f7f8;
+      font-size: 14px;
+    }
+
+    .discount-table th:first-child {
+      border-radius: 10px 0 0 10px;
+    }
+
+    .discount-table th:last-child {
+      border-radius: 0 10px 10px 0;
+    }
+
+    .discount {
+      font-weight: 800;
+      font-size: 16px;
+    }
+
+    .price {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .rounded {
+      font-size: 20px;
+      font-weight: 800;
+      color: #1a73e8;
+    }
+
+    .hint {
+      margin: 18px 0 0;
+      color: #777;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .empty-msg {
+      padding: 20px;
+      color: #888;
+      font-size: 15px;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 18px 10px;
+      }
+
+      .card {
+        padding: 20px 14px;
+        border-radius: 14px;
+      }
+
+      .discount-table th,
+      .discount-table td {
+        padding: 12px 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>折扣價格計算器</h1>
+
+      <div class="input-area">
+        <label for="originalPrice">原價</label>
+        <input
+          id="originalPrice"
+          class="price-input"
+          type="number"
+          min="0"
+          step="1"
+          inputmode="decimal"
+          placeholder="請輸入原價，例如 1000"
+        />
+      </div>
+
+      <!-- 新增自訂折數輸入框 -->
+      <div class="custom-discount-area">
+        <label for="customDiscountInput" class="discount-tags-label">新增自訂折數</label>
+        <div class="custom-input-group">
+          <input
+            id="customDiscountInput"
+            class="custom-input"
+            type="number"
+            min="1"
+            max="99"
+            step="0.1"
+            placeholder="請輸入折數，如：88 (代表88折)"
+          />
+          <button id="addDiscountBtn" class="add-btn" type="button">新增折數</button>
+        </div>
+      </div>
+
+      <!-- 折數點選標籤 -->
+      <div class="discount-tags-area">
+        <span class="discount-tags-label">選擇折扣</span>
+        <div class="tags-container" id="tagsContainer"></div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="discount-table">
+          <thead>
+            <tr>
+              <th>折扣</th>
+              <th>折扣後價格</th>
+              <th>四捨五入</th>
+            </tr>
+          </thead>
+          <tbody id="resultBody"></tbody>
+        </table>
+      </div>
+
+      <p class="hint">點擊標籤切換顯示折數，輸入原價後自動計算</p>
+    </div>
+  </div>
+
+  <script>
+    const discounts = [
+      { id: "95", label: "95折", rate: 0.95, defaultSelected: false },
+      { id: "90", label: "9折", rate: 0.90, defaultSelected: true },
+      { id: "85", label: "85折", rate: 0.85, defaultSelected: true },
+      { id: "88", label: "88折", rate: 0.88, defaultSelected: false },
+      { id: "80", label: "8折", rate: 0.80, defaultSelected: true },
+      { id: "70", label: "7折", rate: 0.70, defaultSelected: false },
+      { id: "60", label: "6折", rate: 0.60, defaultSelected: false },
+      { id: "50", label: "5折", rate: 0.50, defaultSelected: false }
+    ];
+
+    // 紀錄目前已勾選/點選的折扣 ID
+    const selectedDiscountIds = new Set(
+      discounts.filter(d => d.defaultSelected).map(d => d.id)
+    );
+
+    const input = document.getElementById("originalPrice");
+    const resultBody = document.getElementById("resultBody");
+    const tagsContainer = document.getElementById("tagsContainer");
+    const customDiscountInput = document.getElementById("customDiscountInput");
+    const addDiscountBtn = document.getElementById("addDiscountBtn");
+
+    function formatNumber(value) {
+      return value.toLocaleString("zh-TW", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+      });
+    }
+
+    // 渲染折數標籤按鈕
+    function renderTags() {
+      tagsContainer.innerHTML = "";
+      discounts.forEach(({ id, label }) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `tag-btn ${selectedDiscountIds.has(id) ? "active" : ""}`;
+        btn.textContent = label;
+        btn.addEventListener("click", () => toggleDiscount(id));
+        tagsContainer.appendChild(btn);
+      });
+    }
+
+    // 切換點選標籤狀態
+    function toggleDiscount(id) {
+      if (selectedDiscountIds.has(id)) {
+        selectedDiscountIds.delete(id);
+      } else {
+        selectedDiscountIds.add(id);
+      }
+      renderTags();
+      calculate();
+    }
+
+    // 新增自訂折數處理
+    function handleAddCustomDiscount() {
+      const val = parseFloat(customDiscountInput.value);
+
+      if (isNaN(val) || val <= 0 || val >= 100) {
+        alert("請輸入有效的折數（例如 88 代表 88 折）");
+        return;
+      }
+
+      // 轉換率與標籤顯示
+      const rate = val < 10 ? val / 10 : val / 100;
+      const label = `${val}折`;
+      const id = `custom_${val}`;
+
+      // 檢查是否已存在相同的折數
+      const exists = discounts.some(d => d.rate === rate);
+      if (exists) {
+        alert("該折數已存在！");
+        customDiscountInput.value = "";
+        return;
+      }
+
+      // 新增並自動按折數由大到小排序
+      discounts.push({ id, label, rate });
+      discounts.sort((a, b) => b.rate - a.rate);
+
+      // 預設將新增的折數設為選取
+      selectedDiscountIds.add(id);
+
+      customDiscountInput.value = "";
+      renderTags();
+      calculate();
+    }
+
+    // 計算價格並渲染表格
+    function calculate() {
+      const originalPrice = Number(input.value);
+      resultBody.innerHTML = "";
+
+      // 篩選出有被選中的折數
+      const activeDiscounts = discounts.filter(d => selectedDiscountIds.has(d.id));
+
+      if (activeDiscounts.length === 0) {
+        resultBody.innerHTML = `
+          <tr>
+            <td colspan="3" class="empty-msg">請至少選擇一個折扣標籤</td>
+          </tr>
+        `;
+        return;
+      }
+
+      activeDiscounts.forEach(({ label, rate }) => {
+        const price = originalPrice > 0 ? originalPrice * rate : 0;
+        const rounded = originalPrice > 0 ? Math.round(price) : 0;
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="discount">${label}</td>
+          <td class="price">${originalPrice > 0 ? formatNumber(price) : "—"}</td>
+          <td class="rounded">${originalPrice > 0 ? formatNumber(rounded) : "—"}</td>
+        `;
+
+        resultBody.appendChild(tr);
+      });
+    }
+
+    // 事件監聽
+    input.addEventListener("input", calculate);
+    addDiscountBtn.addEventListener("click", handleAddCustomDiscount);
+    
+    // 允許按下 Enter 鍵直接新增自訂折數
+    customDiscountInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleAddCustomDiscount();
+      }
+    });
+
+    // 初始執行
+    renderTags();
+    calculate();
+  </script>
+</body>
+</html>
