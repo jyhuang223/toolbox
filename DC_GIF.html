@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord GIF 最佳化與壓縮工具</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        discord: {
+                            blurple: '#5865F2',
+                            green: '#57F287',
+                            yellow: '#FEE75C',
+                            fuchsia: '#EB459E',
+                            red: '#ED4245',
+                            dark: '#313338',
+                            darker: '#2B2D31',
+                            darkest: '#1E1F22',
+                            channel: '#2B2D31',
+                            hover: '#35373C'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- omggif for decoding GIF frame data -->
+    <script src="https://cdn.jsdelivr.net/npm/omggif@1.0.10/omggif.min.js"></script>
+    <!-- gif.js for encoding GIF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+    <style>
+        /* Custom scrollbar for Discord style */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #2b2d31;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1a1b1e;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #111214;
+        }
+        .checkerboard {
+            background-color: #2b2d31;
+            background-image: 
+                linear-gradient(45deg, #1e1f22 25%, transparent 25%), 
+                linear-gradient(-45deg, #1e1f22 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #1e1f22 75%), 
+                linear-gradient(-45deg, transparent 75%, #1e1f22 75%);
+            background-size: 16px 16px;
+            background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+        }
+    </style>
+</head>
+<body class="bg-discord-darkest text-gray-200 min-h-screen flex flex-col font-sans antialiased selection:bg-discord-blurple selection:text-white">
+
+    <!-- Header / Navbar -->
+    <header class="bg-discord-darker border-b border-gray-800 sticky top-0 z-50 px-4 py-3 shadow-md">
+        <div class="max-w-6xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-discord-blurple flex items-center justify-center text-white text-xl shadow-lg">
+                    <i class="fa-brands font-bold fa-discord"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg text-white leading-tight">Discord GIF 最佳化工具</h1>
+                    <p class="text-xs text-gray-400">專為 Emoji 與 Sticker 設計的輕量純前端壓縮神器</p>
+                </div>
+            </div>
+            <div class="hidden sm:flex items-center gap-2 text-xs bg-discord-dark px-3 py-1.5 rounded-full text-gray-300">
+                <i class="fa-solid fa-shield-halved text-discord-green"></i>
+                <span>完全本地處理，檔案不傳輸至伺服器</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Controls Side (Left 5 Cols on Large) -->
+        <section class="lg:col-span-5 flex flex-col gap-5">
+            
+            <!-- Preset Selector -->
+            <div class="bg-discord-darker p-4 rounded-xl border border-gray-800 shadow-sm">
+                <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                    <i class="fa-solid fa-sliders mr-1"></i> 選擇目標規格
+                </label>
+                <div class="grid grid-cols-3 gap-2" id="preset-buttons">
+                    <button type="button" data-preset="emoji" class="preset-btn active flex flex-col items-center justify-center p-3 rounded-lg border-2 border-discord-blurple bg-discord-blurple/20 text-white transition-all hover:bg-discord-blurple/30">
+                        <i class="fa-solid fa-face-smile text-lg mb-1 text-discord-blurple"></i>
+                        <span class="font-bold text-xs">Emoji</span>
+                        <span class="text-[10px] text-gray-300 mt-0.5">128px | 256KB</span>
+                    </button>
+                    <button type="button" data-preset="sticker" class="preset-btn flex flex-col items-center justify-center p-3 rounded-lg border-2 border-transparent bg-discord-dark hover:bg-discord-hover text-gray-300 transition-all">
+                        <i class="fa-solid fa-note-sticky text-lg mb-1 text-discord-fuchsia"></i>
+                        <span class="font-bold text-xs">Sticker</span>
+                        <span class="text-[10px] text-gray-400 mt-0.5">320px | 512KB</span>
+                    </button>
+                    <button type="button" data-preset="custom" class="preset-btn flex flex-col items-center justify-center p-3 rounded-lg border-2 border-transparent bg-discord-dark hover:bg-discord-hover text-gray-300 transition-all">
+                        <i class="fa-solid fa-gear text-lg mb-1 text-discord-yellow"></i>
+                        <span class="font-bold text-xs">自訂 Custom</span>
+                        <span class="text-[10px] text-gray-400 mt-0.5">自由參數</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Detailed Parameters -->
+            <div class="bg-discord-darker p-5 rounded-xl border border-gray-800 shadow-sm flex-1 flex flex-col gap-4">
+                <h2 class="text-sm font-semibold text-gray-300 border-b border-gray-800 pb-2 flex justify-between items-center">
+                    <span><i class="fa-solid fa-wrench mr-1.5 text-discord-blurple"></i>壓縮與裁切參數</span>
+                    <span id="target-badge" class="text-[11px] bg-discord-blurple/20 text-discord-blurple px-2 py-0.5 rounded font-mono">上限: 256 KB</span>
+                </h2>
+
+                <!-- Width / Height -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">最大寬度 (px)</label>
+                        <input type="number" id="param-width" value="128" min="16" max="1024" class="w-full bg-discord-darkest border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-discord-blurple transition-colors">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">最大高度 (px)</label>
+                        <input type="number" id="param-height" value="128" min="16" max="1024" class="w-full bg-discord-darkest border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-discord-blurple transition-colors">
+                    </div>
+                </div>
+
+                <!-- Aspect Ratio & Crop Mode -->
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1.5">尺寸縮放模式</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="flex items-center gap-2 bg-discord-dark p-2.5 rounded-lg cursor-pointer border border-transparent hover:border-gray-700 transition-all">
+                            <input type="radio" name="crop-mode" value="contain" checked class="accent-discord-blurple">
+                            <span class="text-xs text-gray-200">保持長寬比 (Fit)</span>
+                        </label>
+                        <label class="flex items-center gap-2 bg-discord-dark p-2.5 rounded-lg cursor-pointer border border-transparent hover:border-gray-700 transition-all">
+                            <input type="radio" name="crop-mode" value="cover" class="accent-discord-blurple">
+                            <span class="text-xs text-gray-200">正方形裁切 (Square)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Frame Dropping -->
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-gray-400">影格抽幀 (Frame Dropping)</span>
+                        <span id="frame-drop-val" class="text-discord-blurple font-mono font-bold">保持所有幀 (100%)</span>
+                    </div>
+                    <select id="param-frame-drop" class="w-full bg-discord-darkest border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-discord-blurple">
+                        <option value="1">完整流暢度 (不抽幀)</option>
+                        <option value="2">輕微抽幀 (2 幀取 1 幀，體積 -50%)</option>
+                        <option value="3">中度抽幀 (3 幀取 1 幀，體積 -66%)</option>
+                        <option value="4">高度抽幀 (4 幀取 1 幀，體積 -75%)</option>
+                    </select>
+                </div>
+
+                <!-- Quality / Sample Interval -->
+                <div>
+                    <div class="flex justify-between text-xs mb-1">
+                        <span class="text-gray-400">採樣品質 (Quality / Colors)</span>
+                        <span id="quality-val" class="text-discord-blurple font-mono font-bold">高品質 (10)</span>
+                    </div>
+                    <input type="range" id="param-quality" min="1" max="20" value="10" class="w-full accent-discord-blurple cursor-pointer bg-discord-darkest h-2 rounded-lg">
+                    <div class="flex justify-between text-[10px] text-gray-500 mt-1">
+                        <span>高品質 (速度慢)</span>
+                        <span>低品質 (速度快)</span>
+                    </div>
+                </div>
+
+                <!-- Max Target Size (KB) -->
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">目標大小限制 (KB)</label>
+                    <input type="number" id="param-max-size" value="256" min="10" max="10240" class="w-full bg-discord-darkest border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-discord-blurple">
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="mt-auto pt-2 flex flex-col gap-2">
+                    <button id="btn-process" disabled class="w-full bg-discord-blurple disabled:opacity-40 disabled:cursor-not-allowed hover:bg-opacity-90 text-white font-bold py-3 px-4 rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all">
+                        <i class="fa-solid fa-bolt"></i>
+                        <span>開始壓縮與轉換</span>
+                    </button>
+                    
+                    <button id="btn-auto-compress" disabled class="w-full bg-discord-dark hover:bg-discord-hover disabled:opacity-40 disabled:cursor-not-allowed text-discord-green border border-discord-green/30 font-semibold py-2 px-4 rounded-lg text-xs flex items-center justify-center gap-2 transition-all">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span>智慧降幀壓縮至符合上限</span>
+                    </button>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Preview & Output Side (Right 7 Cols on Large) -->
+        <section class="lg:col-span-7 flex flex-col gap-5">
+            
+            <!-- Upload Drag & Drop Area -->
+            <div id="drop-zone" class="bg-discord-darker border-2 border-dashed border-gray-700 hover:border-discord-blurple rounded-xl p-6 transition-all text-center cursor-pointer relative group">
+                <input type="file" id="file-input" accept="image/gif" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10">
+                <div class="flex flex-col items-center justify-center gap-2 pointer-events-none">
+                    <div class="w-12 h-12 rounded-full bg-discord-dark flex items-center justify-center text-discord-blurple group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-cloud-arrow-up text-2xl"></i>
+                    </div>
+                    <p class="font-bold text-sm text-gray-200">拖放 GIF 檔案至此，或點擊選擇檔案</p>
+                    <p class="text-xs text-gray-400">支援最大 20 MB 之 GIF 動畫</p>
+                </div>
+            </div>
+
+            <!-- Preview Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                
+                <!-- Original Image Card -->
+                <div class="bg-discord-darker p-4 rounded-xl border border-gray-800 flex flex-col">
+                    <div class="flex items-center justify-between mb-3 pb-2 border-b border-gray-800">
+                        <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                            <i class="fa-solid fa-image mr-1"></i> 原始 GIF
+                        </span>
+                        <span id="orig-size-badge" class="text-xs font-mono bg-discord-dark px-2 py-0.5 rounded text-gray-300">-- KB</span>
+                    </div>
+                    <div class="flex-1 flex items-center justify-center checkerboard rounded-lg min-h-[200px] max-h-[300px] overflow-hidden p-2 relative">
+                        <img id="orig-img" class="max-w-full max-h-[260px] object-contain rounded hidden" alt="Original GIF">
+                        <p id="orig-placeholder" class="text-xs text-gray-500">尚未上傳圖片</p>
+                    </div>
+                    <div class="mt-3 pt-2 border-t border-gray-800/60 grid grid-cols-2 gap-2 text-[11px] text-gray-400 font-mono">
+                        <div>解析度: <span id="orig-res" class="text-gray-200">-- x --</span></div>
+                        <div>影格數: <span id="orig-frames" class="text-gray-200">-- 幀</span></div>
+                    </div>
+                </div>
+
+                <!-- Compressed Image Card -->
+                <div class="bg-discord-darker p-4 rounded-xl border border-gray-800 flex flex-col">
+                    <div class="flex items-center justify-between mb-3 pb-2 border-b border-gray-800">
+                        <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                            <i class="fa-solid fa-compress mr-1"></i> 壓縮後結果
+                        </span>
+                        <span id="out-size-badge" class="text-xs font-mono bg-discord-dark px-2 py-0.5 rounded text-gray-400">-- KB</span>
+                    </div>
+                    <div class="flex-1 flex items-center justify-center checkerboard rounded-lg min-h-[200px] max-h-[300px] overflow-hidden p-2 relative">
+                        
+                        <!-- Processing Overlay / Progress -->
+                        <div id="processing-spinner" class="absolute inset-0 bg-discord-darkest/80 flex flex-col items-center justify-center gap-3 z-20 hidden">
+                            <div class="w-10 h-10 border-4 border-discord-blurple border-t-transparent rounded-full animate-spin"></div>
+                            <span id="process-status" class="text-xs text-gray-300 font-medium">處理中 (0%)...</span>
+                        </div>
+
+                        <img id="out-img" class="max-w-full max-h-[260px] object-contain rounded hidden" alt="Compressed GIF">
+                        <p id="out-placeholder" class="text-xs text-gray-500">等待壓縮</p>
+                    </div>
+
+                    <div class="mt-3 pt-2 border-t border-gray-800/60 grid grid-cols-2 gap-2 text-[11px] text-gray-400 font-mono">
+                        <div>解析度: <span id="out-res" class="text-gray-200">-- x --</span></div>
+                        <div>影格數: <span id="out-frames" class="text-gray-200">-- 幀</span></div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Status Banner & Download Area -->
+            <div class="bg-discord-darker p-4 rounded-xl border border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div class="flex items-center gap-3 w-full sm:w-auto">
+                    <div id="status-icon" class="w-10 h-10 rounded-lg bg-discord-dark flex items-center justify-center text-gray-500 shrink-0">
+                        <i class="fa-solid fa-circle-info text-lg"></i>
+                    </div>
+                    <div>
+                        <div id="status-title" class="font-bold text-sm text-gray-300">尚未處理檔案</div>
+                        <div id="status-desc" class="text-xs text-gray-400">請上傳 GIF 後點擊「開始壓縮」按鈕</div>
+                    </div>
+                </div>
+
+                <a id="btn-download" download="discord-emoji.gif" class="w-full sm:w-auto bg-discord-green hover:bg-opacity-90 text-discord-darkest font-bold py-2.5 px-6 rounded-lg text-sm flex items-center justify-center gap-2 transition-all opacity-50 pointer-events-none shadow-md">
+                    <i class="fa-solid fa-download"></i>
+                    <span>下載 GIF</span>
+                </a>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-discord-darker border-t border-gray-800 py-3 text-center text-xs text-gray-500 mt-auto">
+        <p>Discord GIF Optimizer &bull; 專為貼圖與表情符號設計之前端處理工具</p>
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // DOM Elements
+        const fileInput = document.getElementById('file-input');
+        const dropZone = document.getElementById('drop-zone');
+        const btnProcess = document.getElementById('btn-process');
+        const btnAutoCompress = document.getElementById('btn-auto-compress');
+        const btnDownload = document.getElementById('btn-download');
+
+        const paramWidth = document.getElementById('param-width');
+        const paramHeight = document.getElementById('param-height');
+        const paramFrameDrop = document.getElementById('param-frame-drop');
+        const paramQuality = document.getElementById('param-quality');
+        const paramMaxSize = document.getElementById('param-max-size');
+        const frameDropVal = document.getElementById('frame-drop-val');
+        const qualityVal = document.getElementById('quality-val');
+        const targetBadge = document.getElementById('target-badge');
+
+        const origImg = document.getElementById('orig-img');
+        const origPlaceholder = document.getElementById('orig-placeholder');
+        const origSizeBadge = document.getElementById('orig-size-badge');
+        const origRes = document.getElementById('orig-res');
+        const origFrames = document.getElementById('orig-frames');
+
+        const outImg = document.getElementById('out-img');
+        const outPlaceholder = document.getElementById('out-placeholder');
+        const outSizeBadge = document.getElementById('out-size-badge');
+        const outRes = document.getElementById('out-res');
+        const outFrames = document.getElementById('out-frames');
+
+        const spinner = document.getElementById('processing-spinner');
+        const processStatus = document.getElementById('process-status');
+
+        const statusIcon = document.getElementById('status-icon');
+        const statusTitle = document.getElementById('status-title');
+        const statusDesc = document.getElementById('status-desc');
+
+        // State Variables
+        let rawFileBuffer = null;
+        let gifDecodedData = null; // omggif GifReader instance
+        let parsedFrames = []; // Extracted frame canvas elements and delays
+        let currentPreset = 'emoji'; // 'emoji', 'sticker', 'custom'
+        let generatedBlob = null;
+
+        // Presets Definition
+        const PRESETS = {
+            emoji: { width: 128, height: 128, maxSize: 256 },
+            sticker: { width: 320, height: 320, maxSize: 512 },
+            custom: { width: 256, height: 256, maxSize: 500 }
+        };
+
+        // Initialize Preset Event Listeners
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.preset-btn').forEach(b => {
+                    b.classList.remove('active', 'border-discord-blurple', 'bg-discord-blurple/20');
+                    b.classList.add('border-transparent', 'bg-discord-dark');
+                });
+
+                const targetBtn = e.currentTarget;
+                targetBtn.classList.add('active', 'border-discord-blurple', 'bg-discord-blurple/20');
+                targetBtn.classList.remove('border-transparent', 'bg-discord-dark');
+
+                currentPreset = targetBtn.dataset.preset;
+                applyPreset(currentPreset);
+            });
+        });
+
+        function applyPreset(presetKey) {
+            if (presetKey in PRESETS) {
+                const conf = PRESETS[presetKey];
+                if (presetKey !== 'custom') {
+                    paramWidth.value = conf.width;
+                    paramHeight.value = conf.height;
+                    paramMaxSize.value = conf.maxSize;
+                }
+                targetBadge.textContent = `上限: ${paramMaxSize.value} KB`;
+            }
+        }
+
+        // Quality & Frame Drop sliders text updates
+        paramQuality.addEventListener('input', () => {
+            qualityVal.textContent = `品質等級 (${paramQuality.value})`;
+        });
+
+        paramFrameDrop.addEventListener('change', () => {
+            const val = parseInt(paramFrameDrop.value);
+            if (val === 1) frameDropVal.textContent = "保持所有幀 (100%)";
+            else frameDropVal.textContent = `抽幀 (每 ${val} 幀保留 1 幀)`;
+        });
+
+        paramMaxSize.addEventListener('input', () => {
+            targetBadge.textContent = `上限: ${paramMaxSize.value} KB`;
+        });
+
+        // File Drag & Drop Handlers
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('border-discord-blurple', 'bg-discord-blurple/10');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('border-discord-blurple', 'bg-discord-blurple/10');
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0 && files[0].type === 'image/gif') {
+                handleFileSelect(files[0]);
+            } else {
+                alert('請上傳有效的 GIF 圖片檔案！');
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        // Parse and Display Original File
+        function handleFileSelect(file) {
+            if (file.type !== 'image/gif') {
+                alert('所選檔案非 GIF 格式！');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                rawFileBuffer = e.target.result;
+                const blob = new Blob([rawFileBuffer], { type: 'image/gif' });
+                const url = URL.createObjectURL(blob);
+
+                origImg.src = url;
+                origImg.classList.remove('hidden');
+                origPlaceholder.classList.add('hidden');
+                origSizeBadge.textContent = formatBytes(file.size);
+
+                // Decode GIF Header using omggif
+                try {
+                    const uint8Array = new Uint8Array(rawFileBuffer);
+                    gifDecodedData = new omggif.GifReader(uint8Array);
+
+                    origRes.textContent = `${gifDecodedData.width} x ${gifDecodedData.height}`;
+                    origFrames.textContent = `${gifDecodedData.numFrames()} 幀`;
+
+                    // Extract frames to canvas list
+                    extractFrames(gifDecodedData);
+
+                    // Enable Buttons
+                    btnProcess.disabled = false;
+                    btnAutoCompress.disabled = false;
+
+                    updateStatus('info', '檔案已載入', '點擊「開始壓縮」按鈕以進行產出');
+                } catch (err) {
+                    console.error('GIF 解析失敗:', err);
+                    alert('無法解析此 GIF 檔案，可能是檔案損壞或格式不支援。');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Extract frames from Omggif Reader into memory canvases
+        function extractFrames(reader) {
+            parsedFrames = [];
+            const width = reader.width;
+            const height = reader.height;
+
+            // Offscreen Canvas for composite rendering
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+            let previousImageData = null;
+
+            for (let i = 0; i < reader.numFrames(); i++) {
+                const frameInfo = reader.frameInfo(i);
+                
+                // Handle frame disposal code if needed (simplified rendering)
+                const imageData = ctx.createImageData(width, height);
+                reader.decodeAndBlitFrameRGBA(i, imageData.data);
+
+                // Draw frame to canvas
+                const frameCanvas = document.createElement('canvas');
+                frameCanvas.width = width;
+                frameCanvas.height = height;
+                const frameCtx = frameCanvas.getContext('2d');
+
+                // Draw decoded RGBA directly
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = width;
+                tempCanvas.height = height;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.putImageData(imageData, 0, 0);
+
+                frameCtx.drawImage(tempCanvas, 0, 0);
+
+                parsedFrames.push({
+                    canvas: frameCanvas,
+                    delay: (frameInfo.delay || 10) * 10 // Convert 10ms units to ms
+                });
+            }
+        }
+
+        // Process Event Handler
+        btnProcess.addEventListener('click', () => {
+            if (!parsedFrames.length) return;
+            processGif(parseInt(paramFrameDrop.value));
+        });
+
+        // Auto Compress Smart Handler
+        btnAutoCompress.addEventListener('click', async () => {
+            if (!parsedFrames.length) return;
+
+            const targetSizeKB = parseFloat(paramMaxSize.value);
+            let dropFactor = 1;
+            let success = false;
+
+            updateStatus('process', '智慧壓縮中', '自動調整抽幀率以符合作合上限規格...');
+
+            while (dropFactor <= 5) {
+                paramFrameDrop.value = dropFactor;
+                frameDropVal.textContent = dropFactor === 1 ? "保持所有幀 (100%)" : `抽幀 (每 ${dropFactor} 幀保留 1 幀)`;
+
+                const sizeKB = await processGif(dropFactor, true);
+                if (sizeKB <= targetSizeKB) {
+                    success = true;
+                    break;
+                }
+                dropFactor++;
+            }
+
+            if (!success) {
+                updateStatus('warning', '壓縮接近極限', '已儘量降幀壓縮，但體積仍微大幅超過目標限制，建議降低最大解析度');
+            }
+        });
+
+        // Main GIF Encoder Function
+        function processGif(frameSkip = 1, isAuto = false) {
+            return new Promise((resolve) => {
+                spinner.classList.remove('hidden');
+                processStatus.textContent = '準備建構 GIF 幀...';
+
+                const targetWidth = parseInt(paramWidth.value) || 128;
+                const targetHeight = parseInt(paramHeight.value) || 128;
+                const quality = parseInt(paramQuality.value) || 10;
+                const cropMode = document.querySelector('input[name="crop-mode"]:checked').value;
+
+                // Initialize gif.js Encoder
+                const gif = new GIF({
+                    workers: 2,
+                    quality: quality,
+                    width: targetWidth,
+                    height: targetHeight,
+                    workerScript: 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js'
+                });
+
+                // Filter frames based on skip setting
+                const framesToProcess = [];
+                let accumulatedDelay = 0;
+
+                for (let i = 0; i < parsedFrames.length; i++) {
+                    accumulatedDelay += parsedFrames[i].delay;
+                    if (i % frameSkip === 0) {
+                        framesToProcess.push({
+                            canvas: parsedFrames[i].canvas,
+                            delay: accumulatedDelay
+                        });
+                        accumulatedDelay = 0; // Reset delay accumulator
+                    }
+                }
+
+                // Render resized / cropped frames onto new canvas and pass to GIF worker
+                framesToProcess.forEach((f, idx) => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = targetWidth;
+                    canvas.height = targetHeight;
+                    const ctx = canvas.getContext('2d');
+
+                    const srcW = f.canvas.width;
+                    const srcH = f.canvas.height;
+
+                    if (cropMode === 'cover') {
+                        // Center Square Crop (Cover)
+                        const minDim = Math.min(srcW, srcH);
+                        const sx = (srcW - minDim) / 2;
+                        const sy = (srcH - minDim) / 2;
+                        ctx.drawImage(f.canvas, sx, sy, minDim, minDim, 0, 0, targetWidth, targetHeight);
+                    } else {
+                        // Fit/Contain Aspect Ratio
+                        const scale = Math.min(targetWidth / srcW, targetHeight / srcH);
+                        const nw = srcW * scale;
+                        const nh = srcH * scale;
+                        const dx = (targetWidth - nw) / 2;
+                        const dy = (targetHeight - nh) / 2;
+
+                        ctx.drawImage(f.canvas, 0, 0, srcW, srcH, dx, dy, nw, nh);
+                    }
+
+                    gif.addFrame(ctx, { copy: true, delay: f.delay });
+                });
+
+                gif.on('progress', (p) => {
+                    processStatus.textContent = `編碼壓縮中 (${Math.round(p * 100)}%)...`;
+                });
+
+                gif.on('finished', (blob) => {
+                    generatedBlob = blob;
+                    const url = URL.createObjectURL(blob);
+                    
+                    outImg.src = url;
+                    outImg.classList.remove('hidden');
+                    outPlaceholder.classList.add('hidden');
+                    
+                    const sizeKB = (blob.size / 1024).toFixed(1);
+                    const maxSizeKB = parseFloat(paramMaxSize.value);
+
+                    outSizeBadge.textContent = formatBytes(blob.size);
+                    outRes.textContent = `${targetWidth} x ${targetHeight}`;
+                    outFrames.textContent = `${framesToProcess.length} 幀`;
+
+                    // Enable Download
+                    btnDownload.href = url;
+                    btnDownload.setAttribute('download', `discord-${currentPreset}-${targetWidth}x${targetHeight}.gif`);
+                    btnDownload.classList.remove('opacity-50', 'pointer-events-none');
+
+                    spinner.classList.add('hidden');
+
+                    // Check compliance with limits
+                    if (parseFloat(sizeKB) <= maxSizeKB) {
+                        outSizeBadge.className = "text-xs font-mono bg-discord-green/20 text-discord-green font-bold px-2 py-0.5 rounded border border-discord-green/30";
+                        updateStatus('success', '符合 Discord 規格！', `檔案大小 (${sizeKB} KB) 已小於上限 ${maxSizeKB} KB，可直接上傳！`);
+                    } else {
+                        outSizeBadge.className = "text-xs font-mono bg-discord-red/20 text-discord-red font-bold px-2 py-0.5 rounded border border-discord-red/30";
+                        updateStatus('danger', '超過 Discord 限制', `檔案大小 (${sizeKB} KB) 已超出上限 ${maxSizeKB} KB，請嘗試抽幀或縮小尺寸。`);
+                    }
+
+                    resolve(parseFloat(sizeKB));
+                });
+
+                gif.render();
+            });
+        }
+
+        // Helper Function: Update Status Banner
+        function updateStatus(type, title, message) {
+            statusTitle.textContent = title;
+            statusDesc.textContent = message;
+
+            if (type === 'success') {
+                statusIcon.className = "w-10 h-10 rounded-lg bg-discord-green/20 text-discord-green flex items-center justify-center shrink-0 border border-discord-green/30";
+                statusIcon.innerHTML = `<i class="fa-solid fa-circle-check text-xl"></i>`;
+            } else if (type === 'danger') {
+                statusIcon.className = "w-10 h-10 rounded-lg bg-discord-red/20 text-discord-red flex items-center justify-center shrink-0 border border-discord-red/30";
+                statusIcon.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-xl"></i>`;
+            } else if (type === 'warning') {
+                statusIcon.className = "w-10 h-10 rounded-lg bg-discord-yellow/20 text-discord-yellow flex items-center justify-center shrink-0 border border-discord-yellow/30";
+                statusIcon.innerHTML = `<i class="fa-solid fa-circle-exclamation text-xl"></i>`;
+            } else {
+                statusIcon.className = "w-10 h-10 rounded-lg bg-discord-dark text-discord-blurple flex items-center justify-center shrink-0";
+                statusIcon.innerHTML = `<i class="fa-solid fa-circle-info text-xl"></i>`;
+            }
+        }
+
+        // Helper Function: Format Byte Sizes
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html>
