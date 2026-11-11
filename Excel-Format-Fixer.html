@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel 檔案格式清洗與修復工具</title>
+    <!-- 使用支援完整樣式 (Styles/wrapText) 的 SheetJS 模組 -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        body {
+            background-color: #f4f6f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+            width: 100%;
+            max-width: 560px;
+            padding: 32px;
+            text-align: center;
+        }
+        h2 {
+            margin-top: 0;
+            color: #2c3e50;
+            font-size: 22px;
+        }
+        p.subtitle {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+        .drop-zone {
+            border: 2px dashed #3498db;
+            border-radius: 8px;
+            padding: 40px 20px;
+            cursor: pointer;
+            background-color: #f8fafc;
+            transition: all 0.3s ease;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            background-color: #ebf5fb;
+            border-color: #2980b9;
+        }
+        .drop-zone p {
+            margin: 0;
+            color: #34495e;
+            font-size: 15px;
+            font-weight: 500;
+        }
+        .file-input {
+            display: none;
+        }
+        .status {
+            margin-top: 20px;
+            font-size: 14px;
+            min-height: 24px;
+            font-weight: bold;
+        }
+        .status.processing { color: #e67e22; }
+        .status.success { color: #27ae60; }
+        .status.error { color: #e74c3c; }
+        .info-box {
+            margin-top: 24px;
+            background: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 12px 16px;
+            text-align: left;
+            border-radius: 0 6px 6px 0;
+            font-size: 13px;
+            color: #555;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Excel 檔案格式清洗與修復工具</h2>
+    <p class="subtitle">修復 Excel 檔案提示警告與不可見控制字元<br>保留原始欄寬、列高、自動換行與文字格式</p>
+
+    <div class="drop-zone" id="dropZone">
+        <p>點擊選擇檔案，或將 Excel 檔案拖曳至此處</p>
+        <input type="file" id="fileInput" class="file-input" accept=".xlsx, .xls">
+    </div>
+
+    <div class="status" id="statusText"></div>
+
+    <div class="info-box">
+        <strong>自動處理項目：</strong>
+        <br>1. 清除導致 Excel 崩潰或損毀的 ASCII 隱藏控制字元。
+        <br>2. 重建標準 XML 結構，消除「檔案格式與副檔名不符」等開啟警告。
+        <br>3. 識別資料內容換行符號，保留 Wrap Text（自動換行）樣式標籤。
+    </div>
+</div>
+
+<script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const statusText = document.getElementById('statusText');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) {
+            handleFile(e.dataTransfer.files[0]);
+        }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            handleFile(e.target.files[0]);
+        }
+    });
+
+    // 清除隱藏控制字元（嚴格保留斷行符號 \r \n 與 Tab \t）
+    function sanitizeString(str) {
+        if (typeof str !== 'string') return str;
+        return str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '');
+    }
+
+    function handleFile(file) {
+        if (!file.name.match(/\.(xlsx|xls)$/i)) {
+            setStatus('請上傳有效的 Excel 檔案 (.xlsx 或 .xls)', 'error');
+            return;
+        }
+
+        setStatus('正在讀取並清洗檔案內容...', 'processing');
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                
+                // 使用 XLSX 讀取檔案
+                const workbook = XLSX.read(data, {
+                    type: 'array',
+                    cellStyles: true,
+                    cellFormulas: true,
+                    cellDates: true,
+                    cellNF: true
+                });
+
+                // 遍歷所有工作表進行清洗與換行樣式修復
+                workbook.SheetNames.forEach(sheetName => {
+                    const worksheet = workbook.Sheets[sheetName];
+
+                    for (let cellRef in worksheet) {
+                        if (cellRef[0] === '!') continue;
+
+                        const cell = worksheet[cellRef];
+
+                        // 字串清洗
+                        if (cell.t === 's' && typeof cell.v === 'string') {
+                            cell.v = sanitizeString(cell.v);
+                            if (cell.w) cell.w = sanitizeString(cell.w);
+                        }
+
+                        // 初始化樣式物件結構
+                        if (!cell.s) cell.s = {};
+                        if (!cell.s.alignment) cell.s.alignment = {};
+
+                        // 判斷條件：如果原本就有 wrapText 設定，或是文字中包含換行符號 (\n)，強制設定 wrapText = true
+                        const hasNewline = typeof cell.v === 'string' && (cell.v.includes('\n') || cell.v.includes('\r'));
+                        if (cell.s.alignment.wrapText || hasNewline) {
+                            cell.s.alignment.wrapText = true;
+                        }
+
+                        // 清洗註解
+                        if (cell.c) {
+                            cell.c.forEach(comment => {
+                                if (comment.t) comment.t = sanitizeString(comment.t);
+                            });
+                        }
+                    }
+                });
+
+                setStatus('清洗完成！正在生成相容檔...', 'processing');
+
+                const cleanedFileName = file.name.replace(/\.(xlsx|xls)$/i, '_cleaned.xlsx');
+                
+                // 寫入標準 XLSX 檔案
+                XLSX.writeFile(workbook, cleanedFileName, {
+                    bookType: 'xlsx',
+                    cellStyles: true,
+                    compression: true
+                });
+
+                setStatus(`成功完成！已下載修復檔：${cleanedFileName}`, 'success');
+                fileInput.value = '';
+
+            } catch (error) {
+                console.error(error);
+                setStatus('檔案處理失敗，請確認檔案是否損毀或密碼保護。', 'error');
+            }
+        };
+
+        reader.onerror = function() {
+            setStatus('讀取檔案時發生錯誤。', 'error');
+        };
+
+        reader.readAsArrayBuffer(file);
+    }
+
+    function setStatus(message, type) {
+        statusText.innerText = message;
+        statusText.className = `status ${type}`;
+    }
+</script>
+
+</body>
+</html>
